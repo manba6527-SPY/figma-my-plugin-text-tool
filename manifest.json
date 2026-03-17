@@ -1,0 +1,8 @@
+{
+  "name": "字号统一修改工具",
+  "id": "font-size-unifier",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"]
+}
