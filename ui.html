@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字号统一修改工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        body {
+            width: 320px;
+            height: 480px;
+            background-color: #ffffff;
+            color: #111111;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 16px;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            margin-bottom: 16px;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111111;
+            margin-bottom: 8px;
+        }
+
+        /* Tab Navigation */
+        .tab-navigation {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab-button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666666;
+            background-color: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            color: #1a73e8;
+        }
+
+        .tab-button.active {
+            color: #1a73e8;
+            border-bottom-color: #1a73e8;
+        }
+
+        .scope-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .scope-label {
+            font-size: 12px;
+            color: #666666;
+        }
+
+        .scope-dropdown {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: #111111;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .scope-dropdown:focus {
+            border-color: #1a73e8;
+        }
+
+        /* Status */
+        .status {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 12px;
+            border-radius: 4px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            white-space: nowrap;
+        }
+
+        .status.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .status.loading {
+            background-color: #e8f4ff;
+            color: #1a73e8;
+        }
+
+        .status.empty {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status.success {
+            background-color: #e8f5e9;
+            color: #388e3c;
+        }
+
+        /* Font Size List */
+        .list-section {
+            margin-bottom: 16px;
+            position: relative;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666666;
+            padding: 12px;
+            height: 36px;
+            box-sizing: border-box;
+            background-color: #EAF3FC;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .font-size-list {
+            list-style: none;
+            margin: 0;
+            padding: 4px;
+            height: 168px; /* 5条数据 × 32px/条 + 4px padding × 2 */
+            overflow-y: auto;
+            background-color: #FBFBFB;
+        }
+
+        .font-size-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-bottom: 2px;
+            height: auto;
+        }
+
+        .font-size-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        .font-size-item.selected {
+            background-color: transparent;
+            border: none;
+        }
+
+        .font-size-item.selected .font-size-value {
+            color: #1a73e8;
+            font-weight: 500;
+        }
+
+        .font-size-value {
+            font-size: 14px;
+            font-weight: 400;
+            color: #333333;
+        }
+
+        .font-size-count {
+            font-size: 12px;
+            color: #666666;
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        /* Input Section */
+        .input-section {
+            margin-bottom: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666666;
+            margin-bottom: 4px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 8px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        /* Placeholder and default select option styling */
+        .input-field::placeholder {
+            color: #999999;
+        }
+        
+        /* Style for default select option (mimics placeholder) */
+        .input-field option[value=""] {
+            color: #999999;
+        }
+        
+        /* Default color for select when no option is selected */
+        .input-field:invalid {
+            color: #999999;
+        }
+        
+        /* Ensure selected options have normal text color */
+        .input-field option:not([value=""]) {
+            color: #111111;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+        
+        /* Ensure select element has the same appearance as input */
+        select.input-field {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 16px;
+            padding-right: 44px; /* Extra padding for the dropdown arrow */
+        }
+
+        /* Action Buttons */
+        .action-section {
+            margin-top: auto;
+        }
+
+        .unify-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .unify-btn:hover:not(:disabled) {
+            background-color: #1557b0;
+        }
+
+        .unify-btn:disabled {
+            background-color: #e0e0e0;
+            color: #999999;
+            cursor: not-allowed;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666666;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Color swatch */
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        /* Color input */
+        input[type="color"] {
+            width: 100%;
+            height: 32px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1 class="title">字号统一修改</h1>
+                <!-- 自动检测扫描范围：选中容器则扫描容器，否则扫描整个页面 -->
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-button active" data-tab="fontSize">字号</button>
+            <button class="tab-button" data-tab="font">字体</button>
+        </div>
+
+        <!-- Status -->
+        <div class="status" id="status"></div>
+
+        <!-- Font Size List -->
+        <div class="list-section" id="listSection">
+            <div class="list-header">
+                <span>字号 (px)</span>
+                <span>使用次数</span>
+            </div>
+            <ul class="font-size-list" id="fontSizeList"></ul>
+        </div>
+
+        <!-- Font List -->
+        <div class="list-section" id="fontListSection" style="display: none;">
+            <div class="list-header">
+                <span>字体</span>
+                <span>使用次数</span>
+            </div>
+            <ul class="font-size-list" id="fontList"></ul>
+        </div>
+
+
+
+        <!-- Input Section -->
+        <div class="input-section">
+            <!-- Source Size Input -->
+            <div class="input-group">
+                <label class="input-label" for="sourceSize">源字号</label>
+                <input type="text" id="sourceSize" class="input-field" readonly>
+            </div>
+
+            <!-- Target Size Input -->
+            <div class="input-group">
+                <label class="input-label" for="targetSize">目标字号</label>
+                <input type="number" id="targetSize" class="input-field" placeholder="输入目标字号" min="1">
+            </div>
+
+            <!-- Source Font Input -->
+            <div class="input-group" style="display: none;">
+                <label class="input-label" for="sourceFont">源字体</label>
+                <input type="text" id="sourceFont" class="input-field" readonly>
+            </div>
+
+            <!-- Target Font Input -->
+            <div class="input-group" style="display: none;">
+                <label class="input-label" for="targetFont">目标字体</label>
+                <select id="targetFont" class="input-field" required>
+                    <option value="">选择目标字体</option>
+                </select>
+            </div>
+
+
+        </div>
+
+        <!-- Action Button -->
+        <div class="action-section">
+            <button class="unify-btn" id="unifyBtn" disabled>统一修改</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const statusElement = document.getElementById('status');
+        const fontSizeList = document.getElementById('fontSizeList');
+        const fontList = document.getElementById('fontList');
+        const listSection = document.getElementById('listSection');
+        const fontListSection = document.getElementById('fontListSection');
+        const sourceSizeInput = document.getElementById('sourceSize');
+        const targetSizeInput = document.getElementById('targetSize');
+        const sourceFontInput = document.getElementById('sourceFont');
+        const targetFontInput = document.getElementById('targetFont');
+        const unifyBtn = document.getElementById('unifyBtn');
+        // 不再需要scanScope下拉菜单，已实现自动检测
+
+
+        let selectedSourceSize = null;
+        let selectedSourceFont = null;
+        let fontSizeStats = {};
+        let fontStats = {};
+        let currentTab = 'fontSize';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up tab event listeners
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    switchTab(button.dataset.tab);
+                });
+            });
+
+            // Switch to initial tab
+            switchTab(currentTab);
+
+            // Send message to code.js to start scanning
+            scanTextNodes();
+        });
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            currentTab = tabName;
+
+            // Update tab buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.classList.toggle('active', button.dataset.tab === tabName);
+            });
+
+            // Get DOM elements
+            const fontSizeSection = document.getElementById('listSection');
+            const fontSection = document.getElementById('fontListSection');
+            const sourceSizeInput = document.getElementById('sourceSize');
+            const targetSizeInput = document.getElementById('targetSize');
+            const sourceFontInput = document.getElementById('sourceFont');
+            const targetFontInput = document.getElementById('targetFont');
+
+            // Show/hide sections based on tab
+            if (tabName === 'fontSize') {
+                fontSizeSection.style.display = 'block';
+                fontSection.style.display = 'none';
+                
+                // Show size inputs
+                sourceSizeInput.closest('.input-group').style.display = 'block';
+                targetSizeInput.closest('.input-group').style.display = 'block';
+                
+                // Hide font inputs
+                if (sourceFontInput && sourceFontInput.closest('.input-group')) {
+                    sourceFontInput.closest('.input-group').style.display = 'none';
+                }
+                if (targetFontInput && targetFontInput.closest('.input-group')) {
+                    targetFontInput.closest('.input-group').style.display = 'none';
+                }
+            } else if (tabName === 'font') {
+                fontSizeSection.style.display = 'none';
+                fontSection.style.display = 'block';
+                
+                // Hide size inputs
+                sourceSizeInput.closest('.input-group').style.display = 'none';
+                targetSizeInput.closest('.input-group').style.display = 'none';
+                
+                // Show font inputs
+                if (sourceFontInput && sourceFontInput.closest('.input-group')) {
+                    sourceFontInput.closest('.input-group').style.display = 'block';
+                }
+                if (targetFontInput && targetFontInput.closest('.input-group')) {
+                    targetFontInput.closest('.input-group').style.display = 'block';
+                }
+            }
+
+            // Update button state
+            checkUnifyButton();
+        };
+        
+        // Scan text nodes with current scope
+        function scanTextNodes() {
+            parent.postMessage({ pluginMessage: { type: 'scan' } }, '*');
+            showStatus('扫描中...', 'loading');
+        }
+
+        // Listen for messages from code.js
+        window.addEventListener('message', (event) => {
+            const message = event.data.pluginMessage;
+            console.log('Received message from code.js:', message);
+            
+            if (message.type === 'scanComplete') {
+                fontSizeStats = message.fontSizeStats;
+                fontStats = message.fontStats;
+                colorStats = message.colorStats || {};
+                console.log('Color stats:', colorStats);
+                updateFontSizeList();
+                updateFontList();
+                updateColorList();
+                showStatus('', '');
+            } else if (message.type === 'noTextFound') {
+                showEmptyState();
+                showStatus('未找到文本元素', 'empty');
+            } else if (message.type === 'unifyComplete') {
+                showStatus(`成功修改 ${message.count} 处文本`, 'success');
+                // Auto rescan after modification
+                setTimeout(() => {
+                    scanTextNodes();
+                }, 1000);
+            } else if (message.type === 'unifyFontComplete') {
+                showStatus(`成功修改 ${message.count} 处字体`, 'success');
+                // Auto rescan after modification
+                setTimeout(() => {
+                    scanTextNodes();
+                }, 1000);
+            } else if (message.type === 'unifyColorComplete') {
+                showStatus(`成功修改 ${message.count} 处颜色`, 'success');
+                // Auto rescan after modification
+                setTimeout(() => {
+                    scanTextNodes();
+                }, 1000);
+            }
+        });
+
+        // Update font size list
+        function updateFontSizeList() {
+            fontSizeList.innerHTML = '';
+            
+            // Sort font sizes in ascending order
+            const sortedSizes = Object.keys(fontSizeStats)
+                .map(Number)
+                .sort((a, b) => a - b);
+            
+            if (sortedSizes.length === 0) {
+                showEmptyState();
+                return;
+            }
+            
+            sortedSizes.forEach(size => {
+                const count = fontSizeStats[size];
+                const li = document.createElement('li');
+                li.className = 'font-size-item';
+                li.dataset.size = size;
+                
+                if (selectedSourceSize === size) {
+                    li.classList.add('selected');
+                }
+                
+                li.innerHTML = `
+                    <span class="font-size-value">${size}px</span>
+                    <span class="font-size-count">${count}</span>
+                `;
+                
+                li.addEventListener('click', () => selectFontSize(size, li));
+                fontSizeList.appendChild(li);
+            });
+        }
+
+        // Update color list
+
+        
+        // Update font list and populate target font dropdown
+        function updateFontList() {
+            fontList.innerHTML = '';
+            
+            // Sort fonts alphabetically
+            const sortedFonts = Object.keys(fontStats)
+                .sort();
+            
+            if (sortedFonts.length === 0) {
+                return;
+            }
+            
+            sortedFonts.forEach(font => {
+                const count = fontStats[font];
+                const li = document.createElement('li');
+                li.className = 'font-size-item';
+                li.dataset.font = font;
+                
+                if (selectedSourceFont === font) {
+                    li.classList.add('selected');
+                }
+                
+                li.innerHTML = `
+                    <span class="font-size-value">${font}</span>
+                    <span class="font-size-count">${count}</span>
+                `;
+                
+                li.addEventListener('click', () => selectFont(font, li));
+                fontList.appendChild(li);
+            });
+            
+            // Update target font dropdown with the same font list
+            updateTargetFontDropdown(sortedFonts);
+        }
+        
+        // Update target font dropdown with available fonts and common Figma fonts
+        function updateTargetFontDropdown(fonts) {
+            // Clear existing options except the first one
+            const targetFontSelect = document.getElementById('targetFont');
+            while (targetFontSelect.options.length > 1) {
+                targetFontSelect.remove(1);
+            }
+            
+            // Common Figma fonts with Chinese names, organized by font family
+            // Using nested object structure: { fontFamily: { fontWeight: { englishName, chineseName } } }
+            const commonFonts = {
+                "Inter": {
+                    "Regular": { englishName: "Inter Regular", chineseName: "英特 常规" },
+                    "Medium": { englishName: "Inter Medium", chineseName: "英特 中等" },
+                    "SemiBold": { englishName: "Inter SemiBold", chineseName: "英特 半粗体" },
+                    "Bold": { englishName: "Inter Bold", chineseName: "英特 粗体" },
+                    "Black": { englishName: "Inter Black", chineseName: "英特 黑体" },
+                    "Light": { englishName: "Inter Light", chineseName: "英特 细体" },
+                    "Thin": { englishName: "Inter Thin", chineseName: "英特 极细" },
+                    "ExtraBold": { englishName: "Inter ExtraBold", chineseName: "英特 超粗体" },
+                    "Regular Italic": { englishName: "Inter Regular Italic", chineseName: "英特 常规斜体" },
+                    "Medium Italic": { englishName: "Inter Medium Italic", chineseName: "英特 中等斜体" },
+                    "SemiBold Italic": { englishName: "Inter SemiBold Italic", chineseName: "英特 半粗体斜体" },
+                    "Bold Italic": { englishName: "Inter Bold Italic", chineseName: "英特 粗体斜体" }
+                },
+                "Roboto": {
+                    "Regular": { englishName: "Roboto Regular", chineseName: "罗博托 常规" },
+                    "Medium": { englishName: "Roboto Medium", chineseName: "罗博托 中等" },
+                    "Bold": { englishName: "Roboto Bold", chineseName: "罗博托 粗体" },
+                    "Light": { englishName: "Roboto Light", chineseName: "罗博托 细体" },
+                    "Thin": { englishName: "Roboto Thin", chineseName: "罗博托 极细" },
+                    "Black": { englishName: "Roboto Black", chineseName: "罗博托 黑体" },
+                    "Italic": { englishName: "Roboto Italic", chineseName: "罗博托 斜体" }
+                },
+                "Open Sans": {
+                    "Regular": { englishName: "Open Sans Regular", chineseName: "开放无衬线 常规" },
+                    "Medium": { englishName: "Open Sans Medium", chineseName: "开放无衬线 中等" },
+                    "SemiBold": { englishName: "Open Sans SemiBold", chineseName: "开放无衬线 半粗体" },
+                    "Bold": { englishName: "Open Sans Bold", chineseName: "开放无衬线 粗体" }
+                },
+                "Lato": {
+                    "Regular": { englishName: "Lato Regular", chineseName: "拉托 常规" },
+                    "Medium": { englishName: "Lato Medium", chineseName: "拉托 中等" },
+                    "SemiBold": { englishName: "Lato SemiBold", chineseName: "拉托 半粗体" },
+                    "Bold": { englishName: "Lato Bold", chineseName: "拉托 粗体" }
+                },
+                "Montserrat": {
+                    "Regular": { englishName: "Montserrat Regular", chineseName: "蒙瑟拉特 常规" },
+                    "Medium": { englishName: "Montserrat Medium", chineseName: "蒙瑟拉特 中等" },
+                    "SemiBold": { englishName: "Montserrat SemiBold", chineseName: "蒙瑟拉特 半粗体" },
+                    "Bold": { englishName: "Montserrat Bold", chineseName: "蒙瑟拉特 粗体" }
+                },
+                "Roboto Mono": {
+                    "Regular": { englishName: "Roboto Mono Regular", chineseName: "罗博托等宽 常规" },
+                    "Medium": { englishName: "Roboto Mono Medium", chineseName: "罗博托等宽 中等" },
+                    "Bold": { englishName: "Roboto Mono Bold", chineseName: "罗博托等宽 粗体" }
+                },
+                "Source Sans Pro": {
+                    "Regular": { englishName: "Source Sans Pro Regular", chineseName: "思源黑体 常规" },
+                    "SemiBold": { englishName: "Source Sans Pro SemiBold", chineseName: "思源黑体 半粗体" },
+                    "Bold": { englishName: "Source Sans Pro Bold", chineseName: "思源黑体 粗体" }
+                },
+                "Helvetica Neue": {
+                    "Regular": { englishName: "Helvetica Neue Regular", chineseName: "赫维提卡新 常规" },
+                    "Medium": { englishName: "Helvetica Neue Medium", chineseName: "赫维提卡新 中等" },
+                    "Bold": { englishName: "Helvetica Neue Bold", chineseName: "赫维提卡新 粗体" }
+                },
+                "Arial": {
+                    "Regular": { englishName: "Arial Regular", chineseName: "阿里尔 常规" },
+                    "Bold": { englishName: "Arial Bold", chineseName: "阿里尔 粗体" }
+                },
+                "Times New Roman": {
+                    "Regular": { englishName: "Times New Roman Regular", chineseName: "泰晤士新罗马 常规" },
+                    "Bold": { englishName: "Times New Roman Bold", chineseName: "泰晤士新罗马 粗体" }
+                }
+            };
+            
+            // Extract all fonts from the nested structure
+            const allCommonFonts = [];
+            
+            // Iterate through each font family
+            Object.keys(commonFonts).forEach(fontFamily => {
+                // Iterate through each font weight in the family
+                Object.keys(commonFonts[fontFamily]).forEach(fontWeight => {
+                    const font = commonFonts[fontFamily][fontWeight];
+                    allCommonFonts.push(font);
+                });
+            });
+            
+            // Create a map for quick lookup
+            const commonFontMap = {};
+            allCommonFonts.forEach(font => {
+                commonFontMap[font.englishName] = font.chineseName;
+            });
+            
+            // Get all common font English names
+            const commonFontNames = allCommonFonts.map(font => font.englishName);
+            
+            // Merge common fonts with scanned fonts and remove duplicates
+            const allFontNames = [...new Set([...commonFontNames, ...fonts])];
+            
+            // Sort fonts alphabetically by their Chinese name
+            allFontNames.sort((a, b) => {
+                const nameA = commonFontMap[a] || a;
+                const nameB = commonFontMap[b] || b;
+                return nameA.localeCompare(nameB, 'zh-CN');
+            });
+            
+            // Add all font options
+            allFontNames.forEach(fontName => {
+                const option = document.createElement('option');
+                option.value = fontName; // Use English name for Figma API
+                // Use Chinese name if available, otherwise use English name
+                option.textContent = commonFontMap[fontName] || fontName;
+                targetFontSelect.appendChild(option);
+            });
+        }
+
+        // Select font size
+        function selectFontSize(size, element) {
+            // Remove selected class from all items
+            document.querySelectorAll('.font-size-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked item
+            element.classList.add('selected');
+            selectedSourceSize = Number(size); // Convert to number
+            sourceSizeInput.value = `${size}px`;
+            
+            // Focus target size input
+            targetSizeInput.focus();
+            
+            // Enable unify button if target size is valid
+            checkUnifyButton();
+        }
+
+        // Select font
+        function selectFont(font, element) {
+            // Remove selected class from all items
+            document.querySelectorAll('.font-size-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked item
+            element.classList.add('selected');
+            selectedSourceFont = font;
+            sourceFontInput.value = font;
+            
+            // Focus target font input
+            targetFontInput.focus();
+            
+            // Enable unify button if target font is valid
+            checkUnifyButton();
+        }
+        
+
+
+        // Check if unify button should be enabled
+        function checkUnifyButton() {
+            if (currentTab === 'fontSize') {
+                const targetSize = targetSizeInput.value;
+                const isValidTarget = targetSize && Number(targetSize) >= 1;
+                const hasSource = selectedSourceSize !== null;
+                
+                unifyBtn.disabled = !(hasSource && isValidTarget);
+            } else if (currentTab === 'font') {
+                const targetFont = targetFontInput.value;
+                const isValidTarget = targetFont && targetFont.trim() !== '';
+                const hasSource = selectedSourceFont !== null;
+                
+                unifyBtn.disabled = !(hasSource && isValidTarget);
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            if (!message) {
+                statusElement.classList.remove('show');
+                return;
+            }
+            
+            statusElement.textContent = message;
+            statusElement.className = `status ${type} show`;
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                statusElement.classList.remove('show');
+            }, 5000);
+        }
+
+        // Show empty state
+        function showEmptyState() {
+            fontSizeList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-text">未找到文本元素</div>
+                </div>
+            `;
+        }
+
+        // Event Listeners
+        targetSizeInput.addEventListener('input', checkUnifyButton);
+
+        // Add event listeners for font inputs (if they exist)
+        if (sourceFontInput) {
+            sourceFontInput.addEventListener('input', checkUnifyButton);
+        }
+
+        if (targetFontInput) {
+            // Use 'change' event instead of 'input' for dropdown
+            targetFontInput.addEventListener('change', checkUnifyButton);
+        }
+        
+        unifyBtn.addEventListener('click', () => {
+            if (currentTab === 'fontSize') {
+                const targetSize = Number(targetSizeInput.value);
+                if (selectedSourceSize !== null && targetSize >= 1) {
+                    parent.postMessage({
+                        pluginMessage: {
+                            type: 'unify',
+                            sourceSize: selectedSourceSize,
+                            targetSize: targetSize
+                        }
+                    }, '*');
+                    showStatus('修改中...', 'loading');
+                }
+            } else if (currentTab === 'font') {
+                const targetFont = targetFontInput.value.trim();
+                if (selectedSourceFont !== null && targetFont !== '') {
+                    parent.postMessage({
+                        pluginMessage: {
+                            type: 'unifyFont',
+                            sourceFont: selectedSourceFont,
+                            targetFont: targetFont
+                        }
+                    }, '*');
+                    showStatus('修改中...', 'loading');
+                }
+            }
+        });
+        
+        // 扫描范围变化监听器已移除，因为已实现自动检测
+    </script>
+</body>
+</html>
