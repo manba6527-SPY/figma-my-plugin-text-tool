@@ -540,11 +540,8 @@
             if (message.type === 'scanComplete') {
                 fontSizeStats = message.fontSizeStats;
                 fontStats = message.fontStats;
-                colorStats = message.colorStats || {};
-                console.log('Color stats:', colorStats);
                 updateFontSizeList();
                 updateFontList();
-                updateColorList();
                 showStatus('', '');
             } else if (message.type === 'noTextFound') {
                 showEmptyState();
@@ -557,12 +554,6 @@
                 }, 1000);
             } else if (message.type === 'unifyFontComplete') {
                 showStatus(`成功修改 ${message.count} 处字体`, 'success');
-                // Auto rescan after modification
-                setTimeout(() => {
-                    scanTextNodes();
-                }, 1000);
-            } else if (message.type === 'unifyColorComplete') {
-                showStatus(`成功修改 ${message.count} 处颜色`, 'success');
                 // Auto rescan after modification
                 setTimeout(() => {
                     scanTextNodes();

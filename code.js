@@ -4,7 +4,6 @@
 let allTextNodes = []; // 所有文本节点
 let fontSizeStatistics = {}; // 字号统计信息
 let fontStatistics = {}; // 字体统计信息
-let colorStatistics = {}; // 颜色统计信息
 
 // 初始化插件UI
 figma.showUI(__html__, {
@@ -18,7 +17,6 @@ function scanTextNodes() {
   allTextNodes = [];
   fontSizeStatistics = {};
   fontStatistics = {};
-  colorStatistics = {};
   let targetTextNodes = [];
   
   // 自动检测选择状态：如果有选中的图层，扫描选中的容器，否则扫描整个页面
@@ -64,17 +62,7 @@ function scanTextNodes() {
           const fontKey = `${fontName.family} ${fontName.style}`;
           fontStatistics[fontKey] = (fontStatistics[fontKey] || 0) + 1;
           
-          // 收集颜色信息
-          const fills = node.getRangeFills(i, i + 1);
-          if (fills.length > 0 && fills[0].type === 'SOLID') {
-            const color = rgbaToHex(fills[0].color);
-            colorStatistics[color] = (colorStatistics[color] || 0) + 1;
-          } else if (fills.length > 0) {
-            // 收集渐变颜色信息
-            // 渐变的key使用其类型和位置信息生成
-            const gradientKey = `${fills[0].type}_${fills[0].gradientTransform ? JSON.stringify(fills[0].gradientTransform) : 'unknown'}`;
-            colorStatistics[gradientKey] = (colorStatistics[gradientKey] || 0) + 1;
-          }
+
         }
       } else {
         // 单一字号/字体/颜色：直接获取
@@ -87,16 +75,7 @@ function scanTextNodes() {
         const fontKey = `${fontName.family} ${fontName.style}`;
         fontStatistics[fontKey] = (fontStatistics[fontKey] || 0) + 1;
         
-        // 收集颜色信息
-        if (node.fills && node.fills.length > 0 && node.fills[0].type === 'SOLID') {
-          const color = rgbaToHex(node.fills[0].color);
-          colorStatistics[color] = (colorStatistics[color] || 0) + 1;
-        } else if (node.fills && node.fills.length > 0) {
-          // 收集渐变颜色信息
-          // 渐变的key使用其类型和位置信息生成
-          const gradientKey = `${node.fills[0].type}_${node.fills[0].gradientTransform ? JSON.stringify(node.fills[0].gradientTransform) : 'unknown'}`;
-          colorStatistics[gradientKey] = (colorStatistics[gradientKey] || 0) + 1;
-        }
+
       }
     } catch (error) {
       // 容错处理：跳过有问题的节点
@@ -108,40 +87,7 @@ function scanTextNodes() {
   sendScanResults();
 }
 
-// RGBA颜色转换为Hex格式（仅考虑RGB，忽略alpha通道）
-function rgbaToHex(color) {
-  const r = Math.round(color.r * 255);
-  const g = Math.round(color.g * 255);
-  const b = Math.round(color.b * 255);
-  
-  // 始终使用6位Hex格式
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
 
-// Hex颜色转换为RGBA格式
-function hexToRgba(hex) {
-  // 移除#符号并转换为小写
-  hex = hex.replace('#', '').toLowerCase();
-  
-  // 解析6位或8位Hex值
-  let r, g, b, a;
-  if (hex.length === 6) {
-    r = parseInt(hex.substring(0, 2), 16) / 255;
-    g = parseInt(hex.substring(2, 4), 16) / 255;
-    b = parseInt(hex.substring(4, 6), 16) / 255;
-    a = 1;
-  } else if (hex.length === 8) {
-    r = parseInt(hex.substring(0, 2), 16) / 255;
-    g = parseInt(hex.substring(2, 4), 16) / 255;
-    b = parseInt(hex.substring(4, 6), 16) / 255;
-    a = parseInt(hex.substring(6, 8), 16) / 255;
-  } else {
-    // 默认返回黑色
-    return { r: 0, g: 0, b: 0, a: 1 };
-  }
-  
-  return { r, g, b, a };
-}
 
 // 发送扫描结果到UI
 function sendScanResults() {
@@ -149,13 +95,12 @@ function sendScanResults() {
     // 没有找到文本节点
     figma.ui.postMessage({ type: 'noTextFound' });
   } else {
-    // 发送字号、字体和颜色统计数据
-    figma.ui.postMessage({ 
-      type: 'scanComplete', 
-      fontSizeStats: fontSizeStatistics,
-      fontStats: fontStatistics,
-      colorStats: colorStatistics
-    });
+    // 发送扫描结果到UI
+  figma.ui.postMessage({ 
+    type: 'scanComplete', 
+    fontSizeStats: fontSizeStatistics,
+    fontStats: fontStatistics
+  });
   }
 }
 
@@ -327,125 +272,7 @@ async function unifyFonts(sourceFont, targetFonts) {
   scanTextNodes();
 }
 
-// 统一修改颜色
-async function unifyColors(sourceColor, targetColor) {
-  let modifiedCount = 0;
-  console.log('Unifying colors:', sourceColor, '→', targetColor);
-  
-  // 解析目标颜色为RGBA格式
-  const targetRgba = hexToRgba(targetColor);
-  const targetFill = {
-    type: 'SOLID',
-    color: targetRgba
-  };
-  console.log('Target fill:', targetFill);
-  
-  // 判断源颜色是纯色还是渐变
-  const isSourceGradient = !sourceColor.startsWith('#');
-  
-  for (const node of allTextNodes) {
-    try {
-      if (node.locked) continue;
-      
-      if (node.hasMixedFills) {
-        // 处理混合颜色的情况
-        const characters = node.characters;
-        for (let i = 0; i < characters.length; i++) {
-          const currentFills = node.getRangeFills(i, i + 1);
-          if (currentFills.length > 0) {
-            let shouldModify = false;
-            
-            if (isSourceGradient) {
-              // 源颜色是渐变
-              if (currentFills[0].type !== 'SOLID') {
-                // 生成渐变的key
-                const currentGradientKey = `${currentFills[0].type}_${currentFills[0].gradientTransform ? JSON.stringify(currentFills[0].gradientTransform) : 'unknown'}`;
-                shouldModify = currentGradientKey === sourceColor;
-              }
-            } else {
-              // 源颜色是纯色
-              if (currentFills[0].type === 'SOLID') {
-                const currentColor = rgbaToHex(currentFills[0].color);
-                shouldModify = currentColor === sourceColor;
-              }
-            }
-            
-            if (shouldModify) {
-              // 查找连续相同颜色的范围
-              let end = i + 1;
-              while (end < characters.length) {
-                const nextFills = node.getRangeFills(end, end + 1);
-                if (nextFills.length === 0) break;
-                
-                let isSameAsSource = false;
-                if (isSourceGradient) {
-                  // 源颜色是渐变
-                  if (nextFills[0].type !== 'SOLID') {
-                    const nextGradientKey = `${nextFills[0].type}_${nextFills[0].gradientTransform ? JSON.stringify(nextFills[0].gradientTransform) : 'unknown'}`;
-                    isSameAsSource = nextGradientKey === sourceColor;
-                  }
-                } else {
-                  // 源颜色是纯色
-                  if (nextFills[0].type === 'SOLID') {
-                    const nextColor = rgbaToHex(nextFills[0].color);
-                    isSameAsSource = nextColor === sourceColor;
-                  }
-                }
-                
-                if (!isSameAsSource) break;
-                end++;
-              }
-              
-              // 修改颜色
-              node.setRangeFills(i, end, [targetFill]);
-              modifiedCount++;
-              
-              i = end - 1;
-            }
-          }
-        }
-      } else {
-        // 处理单一颜色的情况
-        if (node.fills && node.fills.length > 0) {
-          let shouldModify = false;
-          
-          if (isSourceGradient) {
-            // 源颜色是渐变
-            if (node.fills[0].type !== 'SOLID') {
-              const currentGradientKey = `${node.fills[0].type}_${node.fills[0].gradientTransform ? JSON.stringify(node.fills[0].gradientTransform) : 'unknown'}`;
-              shouldModify = currentGradientKey === sourceColor;
-            }
-          } else {
-            // 源颜色是纯色
-            if (node.fills[0].type === 'SOLID') {
-              const currentColor = rgbaToHex(node.fills[0].color);
-              shouldModify = currentColor === sourceColor;
-            }
-          }
-          
-          if (shouldModify) {
-            // 修改颜色
-            node.fills = [targetFill];
-            modifiedCount++;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('修改颜色时出错:', error);
-      // 容错处理：继续处理下一个节点
-    }
-  }
-  
-  console.log('Modified', modifiedCount, 'nodes');
-  // 发送修改结果到UI
-  figma.ui.postMessage({ 
-    type: 'unifyColorComplete', 
-    count: modifiedCount 
-  });
-  
-  // 修改完成后重新扫描
-  scanTextNodes();
-}
+
 
 // 监听来自UI的消息
 figma.ui.onmessage = (msg) => {
@@ -459,9 +286,7 @@ figma.ui.onmessage = (msg) => {
     } else if (msg.type === 'unifyFont') {
       // 统一修改字体
       unifyFonts(msg.sourceFont, msg.targetFont);
-    } else if (msg.type === 'unifyColor') {
-      // 统一修改颜色
-      unifyColors(msg.sourceColor, msg.targetColor);
+  
     }
   } catch (error) {
     console.error('处理UI消息时出错:', error);
